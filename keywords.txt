@@ -1,0 +1,24 @@
+#######################################
+# Syntax Coloring Map For TwitterWebAPI
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+TwitterClient	KEYWORD1
+TwitterWebAPI   KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+tweet	KEYWORD2
+searchtwitter	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+consumer_key LITERAL1
+consumer_sec LITERAL1
+accesstoken LITERAL1
+accesstoken_sec LITERAL1
