@@ -49,7 +49,7 @@ tcr.startNTP();
 **Search for a key word**
 ```
 std::string search_str;
-String tmsg = tcr.searchtwitter(search_str);
+String tmsg = tcr.searchTwitter(search_str);
 ```
 **Post to Twitter**
 ```

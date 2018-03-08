@@ -6,6 +6,8 @@
 #include <string>
 #include <algorithm>
 
+#define TIMEOUT 3000  // in msec
+
 class misc {
 private:
   static void url_encode_(const char *ptr, const char *end, std::vector<char> *out)
@@ -978,9 +980,8 @@ private:
           port = l.port();
           }
         if (client->connect(host.c_str(), port)) {
-          String body, uname;
-          bool avail = false, textb = false, texteb= false, userb = false;
-          int ct=1;
+          String body;
+          bool avail = false;
           unsigned long now = millis();
           
 //          Serial.print("GET " + path );
@@ -1006,26 +1007,30 @@ private:
           client->print("Authorization: OAuth");
           client->println(opt.get_begin);
           client->println("");
-            
+
+//          String header; bool textb = false;
+
           while (millis() - now < 5000) {
             while (client->available()) {
-              char c = client->read();
-              if(!texteb) body = body + c;
-              uname = uname + c;
-              avail = true;
-              if (ct==1) {
-                if(body.endsWith(",\"text\":\"") or body.endsWith(",\"errors\":\"")) { body=""; textb = true; }
-                if(textb and body.endsWith("\",\"")) { body.remove(body.length()-3,3); ct=2; uname=""; texteb=true;}
-              } else if (ct == 2) {
-                if(uname.endsWith(",\"screen_name\":\"")) { uname="@"; userb = true; }
-                if(userb and uname.endsWith("\",\"")) { uname.remove(uname.length()-3,3); break; }
-              }
+              client->setTimeout(TIMEOUT);
+              body = client->readStringUntil('\r');
+              avail = true; yield();
+//              Serial.println(body);
+//              if (!textb) {
+//                header = client->readStringUntil('\r');
+//                Serial.println(header);
+//                avail = true;
+//                if (header.endsWith("i/xss_report")) { textb = true; }
+//              } else {
+//                
+//                body = client->readString();
+//                Serial.println(body);
+//              }
             }
-            if (avail and !(textb)) body= "";
             if (avail) break;
           }
-          body = uname + " says " + body;
           *reply = body;
+//          Serial.println(reply->c_str());
           client->flush();
           client->stop();
           return true;
@@ -1053,11 +1058,12 @@ private:
           client->println(len);
           client->println();
           client->write((uint8_t const *)opt.post_begin, len);
-//        delay(1000);
+          client->setTimeout(TIMEOUT);
           String s = client->readString();
           *reply = s;
           //Serial.println("Tweeted");
           client->flush();
+          client->stop();
           return true;
         }
       } else {
@@ -1124,7 +1130,7 @@ public:
     return request(oauth_req.url, opt, &res);
   }
 
-  String searchtwitter(std::string message)
+  String searchTwitter(std::string message)
   {
     timeClient->update();
     time_t currentTime = (time_t) timeClient->getEpochTime();
@@ -1139,6 +1145,35 @@ public:
     url += "?q=";
     url += misc::url_encode(message);
     url += "&result_type=recent&count=1";
+
+    oauth::Request oauth_req = oauth::sign(url.c_str(), oauth::GET, keys(), currentTime);
+    String res;
+    RequestOption opt;
+    char const *p = oauth_req.getdata.c_str();
+    char const *r = oauth_req.right.c_str();
+    opt.set_get_data(p, p + oauth_req.getdata.size(), r);
+    if(request(oauth_req.url, opt, &res)){
+      return res;
+    } else {
+      return "Error";
+    }
+  }
+  
+  String searchUser(std::string message)
+  {
+    timeClient->update();
+    time_t currentTime = (time_t) timeClient->getEpochTime();
+//    Serial.print("Epoch: "); Serial.println(currentTime);
+    
+    if (message.empty()) {
+      return "Error with search term!";
+    }
+
+    std::string url = "https://api.twitter.com/1.1/users/search.json";
+    
+    url += "?q=";
+    url += misc::url_encode(message);
+    url += "&page=1&count=1";
 
     oauth::Request oauth_req = oauth::sign(url.c_str(), oauth::GET, keys(), currentTime);
     String res;

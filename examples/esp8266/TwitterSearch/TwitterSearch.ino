@@ -63,17 +63,46 @@ void setup(void){
   if (twi_update_interval < 5) api_mtbs = 5000; // Cant update faster than 5s.
 }
 
+void extractJSON(String tmsg) {
+  const char* msg2 = const_cast <char*> (tmsg.c_str());
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& response = jsonBuffer.parseObject(msg2);
+  
+  if (!response.success()) {
+    Serial.println("Failed to parse JSON!");
+    Serial.println(msg2);
+//    jsonBuffer.clear();
+    return;
+  }
+  
+  if (response.containsKey("statuses")) {
+    String usert = response["statuses"][0]["user"]["screen_name"];
+    String text = response["statuses"][0]["text"];
+    if (text != "") {
+      text = "@" + usert + " says " + text;
+      search_msg = std::string(text.c_str(), text.length());
+    }
+  } else if(response.containsKey("errors")) {
+    String err = response["errors"][0];
+    search_msg = std::string(err.c_str(), err.length());
+  } else {
+    Serial.println("No useful data");
+  }
+  
+  jsonBuffer.clear();
+  delete [] msg2;
+}
+
 void loop(void){
   if (millis() > api_lasttime + api_mtbs)  {
     digitalWrite(LED_BUILTIN, LOW);
-    String tmsg = tcr.searchtwitter(search_str);
-    if (tmsg.length()>0 and tmsg.length()<500) search_msg = std::string(tmsg.c_str(), tmsg.length());
-    }
+    extractJSON(tcr.searchTwitter(search_str));
     Serial.print("Search: ");
     Serial.println(search_str.c_str());
     Serial.print("MSG: ");
     Serial.println(search_msg.c_str());
     api_lasttime = millis();
+  }
   yield();
   digitalWrite(LED_BUILTIN, HIGH);
 }

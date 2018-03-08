@@ -11,8 +11,9 @@ TwitterWebAPI   KEYWORD1
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
-tweet	KEYWORD2
-searchtwitter	KEYWORD2
+tweet	        KEYWORD2
+searchTwitter	KEYWORD2
+searchUser      KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

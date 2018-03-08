@@ -9,12 +9,16 @@
 #include <WiFiManager.h>
 #include <NTPClient.h>
 #include <TimeLib.h>
-#include <SPI.h>
-#include <bitBangedSPI.h>
-#include <MAX7219_Dot_Matrix.h>           // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 #include <TwitterWebAPI.h>
+
+//#define MAX7219DISPLAY                    // uncomment if using MAX7219-4-digit-display-for-ESP8266
+#ifdef MAX7219DISPLAY
+  #include <SPI.h>
+  #include <bitBangedSPI.h>
+  #include <MAX7219_Dot_Matrix.h>         // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
+#endif
 
 bool resetsettings = false;               // true to reset WiFiManager & delete FS files
 const char *HOSTNAME= "TwitterDisplay";   // Hostname of your device
@@ -30,12 +34,12 @@ unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls
   static char const accesstoken[]     = "041657084136508135-F3BE63U4Y6b346kj6bnkdlvnjbGsd3V";
   static char const accesstoken_sec[] = "bsekjH8YT3dCWDdsgsdHUgdBiosesDgv43rknU4YY56Tj";
 #endif
-
+#ifdef MAX7219DISPLAY
 // VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8 (configurable below), CLK -> D5
 const byte chips = 4;                     // Number of Display Chips
 MAX7219_Dot_Matrix display (chips, D8);   // Chips / LOAD
 unsigned long MOVE_INTERVAL = 20;         // (msec) increase to slow, decrease to fast
-
+#endif
 #ifndef AutoAP_password
   #define AutoAP_password "password"      // Dafault AP Password
 #endif
@@ -167,26 +171,61 @@ bool readfromFS() {
   //end read
 }
 
+void extractJSON(String tmsg) {
+  const char* msg2 = const_cast <char*> (tmsg.c_str());
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& response = jsonBuffer.parseObject(msg2);
+  
+  if (!response.success()) {
+    DEBUG_PRINTLN("Failed to parse JSON!");
+    DEBUG_PRINTLN(msg2);
+//    jsonBuffer.clear();
+    return;
+  }
+  
+  if (response.containsKey("statuses")) {
+    String usert = response["statuses"][0]["user"]["screen_name"];
+    String text = response["statuses"][0]["text"];
+    if (text != "") {
+      text = "@" + usert + " says " + text;
+      search_msg = std::string(text.c_str(), text.length());
+    }
+  } else if(response.containsKey("errors")) {
+    String err = response["errors"][0];
+    search_msg = std::string(err.c_str(), err.length());
+  } else {
+    DEBUG_PRINTLN("No useful data");
+  }
+  
+  jsonBuffer.clear();
+  delete [] msg2;
+}
+
 void updateDisplay(){
   char *msg = new char[search_msg.length() + 1];
   strcpy(msg, search_msg.c_str());
-
+  #ifdef MAX7219DISPLAY
   display.sendSmooth (msg, messageOffset);
+
   // next time show one pixel onwards
   if (messageOffset++ >= (int) (strlen (msg) * 8)){
     messageOffset = - chips * 8;
+  #endif
     if (twit_update) {
       digitalWrite(LED_BUILTIN, LOW);
+	  #ifdef MAX7219DISPLAY
       display.sendString ("--------");
-      String tmsg = tcr.searchtwitter(search_str);
-      if (tmsg.length()>0 and tmsg.length()<500) search_msg = std::string(tmsg.c_str(), tmsg.length());
+	  #endif
+      extractJSON(tcr.searchTwitter(search_str));
       DEBUG_PRINT("Search: ");
       DEBUG_PRINTLN(search_str.c_str());
       DEBUG_PRINT("MSG: ");
       DEBUG_PRINTLN(search_msg.c_str());
       twit_update = false;
     }
+  #ifdef MAX7219DISPLAY
   }
+  #endif
   delete [] msg;
   //free(msg);
 }  // end of updateDisplay
@@ -311,6 +350,14 @@ void handleNotFound(){
 
 void setup(void){
   if (twi_update_interval < 5) api_mtbs = 5000; // Cant update faster than 5s.
+
+  #ifdef MAX7219DISPLAY
+  display.begin();
+  display.setIntensity(9);
+  #endif
+  
+  pinMode(MODEBUTTON, INPUT);  // MODEBUTTON as input for Config mode selection
+
   //Begin Serial
   Serial.begin(115200);
   
