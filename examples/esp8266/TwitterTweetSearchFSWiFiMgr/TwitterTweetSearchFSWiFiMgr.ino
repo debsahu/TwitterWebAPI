@@ -13,7 +13,7 @@
 #include <bitBangedSPI.h>
 #include <MAX7219_Dot_Matrix.h>           // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
-#include "secret.h"                       // uncomment if using secret.h file with credentials
+//#include "secret.h"                       // uncomment if using secret.h file with credentials
 #include <TwitterWebAPI.h>
 
 bool resetsettings = false;               // true to reset WiFiManager & delete FS files
