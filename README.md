@@ -12,7 +12,7 @@ In order to talk to Twitter,
 Fill the obtained Consumer Key, Consumer Secret, Access Token and Access Token Secret inside the sketch.
 
 ## Using the Library
-* Download this github library.
+* Download this GitHub [library](https://github.com/debsahu/TwitterWebAPI/archive/master.zip).
 * In Arduino, Goto Sketch -> Include Library -> Add .ZIP Library... and point to the zip file downloaded.
 
 To use in your sketch include these lines.
