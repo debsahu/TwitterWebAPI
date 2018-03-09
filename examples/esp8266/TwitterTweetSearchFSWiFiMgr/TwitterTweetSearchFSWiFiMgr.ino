@@ -91,16 +91,19 @@ void saveConfigCallback () {
   shouldSaveConfig = true;
 }
 
+bool updateFS = false;
 // Write search_str to FS
 bool writetoFS(bool saveConfig){
   if (saveConfig) {
     //FS save
     DEBUG_PRINT("Mounting FS...");
     if (SPIFFS.begin() and saveConfig) {
+      updateFS = true;
       DEBUG_PRINTLN("Mounted.");
       //save the custom parameters to FS
       DEBUG_PRINT("Saving config: ");
-      DynamicJsonBuffer jsonBuffer;
+//      DynamicJsonBuffer jsonBuffer;
+      StaticJsonBuffer<200> jsonBuffer;
       JsonObject& json = jsonBuffer.createObject();
       json["search"] = search_str.c_str();
 
@@ -112,15 +115,19 @@ bool writetoFS(bool saveConfig){
       json.printTo(Serial);
       json.printTo(configFile);
       configFile.close();
-      SPIFFS.end(); return true;
+      updateFS = false;
+      SPIFFS.end();
+      return true;
       //end save
     } else {
       DEBUG_PRINTLN("Failed to mount FS");
-      SPIFFS.end(); return false;
+//      SPIFFS.end();
+      return false;
     }
   } else {
     DEBUG_PRINTLN("SaveConfig is False!");
-    SPIFFS.end(); return false;
+//    SPIFFS.end(); 
+    return false;
   }
 }
 
@@ -128,6 +135,7 @@ bool writetoFS(bool saveConfig){
 bool readfromFS() {
   //read configuration from FS json
   DEBUG_PRINT("Mounting FS...");
+  updateFS = true;
   if (resetsettings) { SPIFFS.begin(); SPIFFS.remove("/config.json"); SPIFFS.format(); delay(1000);}
   if (SPIFFS.begin()) {
     DEBUG_PRINTLN("mounted file system");
@@ -142,31 +150,32 @@ bool readfromFS() {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
+//        DynamicJsonBuffer jsonBuffer;
+        StaticJsonBuffer<JSON_OBJECT_SIZE(10)> jsonBuffer;
         JsonObject& json = jsonBuffer.parseObject(buf.get());
         json.printTo(Serial);
         if (json.success()) {
           DEBUG_PRINTLN("\nparsed json");
           String tmpstr = json["search"];
           search_str = std::string(tmpstr.c_str(), tmpstr.length());
-          SPIFFS.end(); return true;
+          SPIFFS.end();
+          updateFS = false;
+          return true;
         } else {
           DEBUG_PRINTLN("Failed to load json config");
-          SPIFFS.end(); return false;
         }
       } else {
         DEBUG_PRINTLN("Failed to open /config.json");
-        SPIFFS.end(); return false;
       }
     } else {
       DEBUG_PRINTLN("Coudnt find config.json");
-      SPIFFS.end(); return false;
     }
   } else {
     DEBUG_PRINTLN("Failed to mount FS");
-    SPIFFS.end(); return false;
   }
   //end read
+  updateFS = false;
+  return false;
 }
 
 void extractJSON(String tmsg) {
@@ -200,56 +209,60 @@ void extractJSON(String tmsg) {
 }
 
 void extractTweetText(String tmsg) {
-  unsigned int msglen = tmsg.length();
+  DEBUG_PRINT("Recieved Message Length");
+  long msglen = tmsg.length();
+  DEBUG_PRINT(": ");
+  DEBUG_PRINTLN(msglen);
+  if (msglen <= 0) return;
   
-  String seatchstr = ",\"text\":\""; 
-  unsigned int searchlen = seatchstr.length();
+  String searchstr = ",\"text\":\""; 
+  unsigned int searchlen = searchstr.length();
   int pos1 = -1, pos2 = -1;
-  for(int i=0; i <= msglen - searchlen; i++) {
-    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+  for(long i=0; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == searchstr) {
       pos1 = i + searchlen;
       break;
     }
   }
-  seatchstr = "\",\""; 
-  searchlen = seatchstr.length();
-  for(int i=pos1; i <= msglen - searchlen; i++) {
-    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+  searchstr = "\",\""; 
+  searchlen = searchstr.length();
+  for(long i=pos1; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == searchstr) {
       pos2 = i;
       break;
     }
   }
   String text = tmsg.substring(pos1, pos2);
 
-  seatchstr = ",\"screen_name\":\""; 
-  searchlen = seatchstr.length();
+  searchstr = ",\"screen_name\":\""; 
+  searchlen = searchstr.length();
   int pos3 = -1, pos4 = -1;
-  for(int i=pos2; i <= msglen - searchlen; i++) {
-    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+  for(long i=pos2; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == searchstr) {
       pos3 = i + searchlen;
       break;
     }
   }
-  seatchstr = "\",\""; 
-  searchlen = seatchstr.length();
-  for(int i=pos3; i <= msglen - searchlen; i++) {
-    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+  searchstr = "\",\""; 
+  searchlen = searchstr.length();
+  for(long i=pos3; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == searchstr) {
       pos4 = i;
       break;
     }
   }
   String usert = "@" + tmsg.substring(pos3, pos4);
 
-  if (text.length() >0 ) {
+  if (text.length() > 0) {
     text =  usert + " says " + text;
     search_msg = std::string(text.c_str(), text.length());
   }
 }
 
 void updateDisplay(){
+  #ifdef MAX7219DISPLAY
   char *msg = new char[search_msg.length() + 1];
   strcpy(msg, search_msg.c_str());
-  #ifdef MAX7219DISPLAY
   display.sendSmooth (msg, messageOffset);
 
   // next time show one pixel onwards
@@ -262,6 +275,7 @@ void updateDisplay(){
       display.sendString ("--------");
 	  #endif
       extractTweetText(tcr.searchTwitter(search_str));
+//      extractJSON(tcr.searchTwitter(search_str)); // ArduinoJSON crashes esp8266, twitter info is too long
       DEBUG_PRINT("Search: ");
       DEBUG_PRINTLN(search_str.c_str());
       DEBUG_PRINT("MSG: ");
@@ -270,9 +284,9 @@ void updateDisplay(){
     }
   #ifdef MAX7219DISPLAY
   }
-  #endif
   delete [] msg;
   //free(msg);
+  #endif
 }  // end of updateDisplay
 
 void handleRoot() {
@@ -358,7 +372,10 @@ void processReadTweet(){
     for ( uint8_t i = 0; i < server.args(); i++ ) {
       DEBUG_PRINT(server.argName(i)); // Display the argument
       if (server.argName(i) == "search_input") {
+        DEBUG_PRINT("Input received was: ");
+        DEBUG_PRINTLN(server.arg(i));
         search_str=std::string(server.arg(i).c_str());
+        if(writetoFS(true)) DEBUG_PRINTLN(". done writing!"); // FS save
       }
     }
   }
@@ -405,6 +422,8 @@ void setup(void){
 
   //Begin Serial
   Serial.begin(115200);
+  
+  if(readfromFS()) DEBUG_PRINTLN("Done reading");
   
   //WiFiManager
   //Local intialization. Once its business is done, there is no need to keep it around
@@ -510,15 +529,19 @@ void loop(void){
     if(writetoFS(shouldSaveConfig)) DEBUG_PRINTLN("Done writing");;
   }
   
-  if ((millis() > api_lasttime + api_mtbs))  {
-    timeClient.update();   // NTP time update
+  if ((millis() > api_lasttime + api_mtbs) and !(updateFS))  {
     twit_update = true;
+    #ifndef MAX7219DISPLAY
+    updateDisplay();
+    #endif
     api_lasttime = millis();
   }
+  #ifdef MAX7219DISPLAY
   if (millis() - lastMoved >= MOVE_INTERVAL){
     updateDisplay();
     lastMoved = millis();
   }
+  #endif
   yield();
   digitalWrite(LED_BUILTIN, HIGH);
 }

@@ -1014,7 +1014,7 @@ private:
             while (client->available()) {
               client->setTimeout(TIMEOUT);
               body = client->readStringUntil('\r');
-              avail = true; yield();
+              avail = true; //yield();
 //              Serial.println(body);
 //              if (!textb) {
 //                header = client->readStringUntil('\r');

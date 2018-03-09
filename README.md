@@ -51,6 +51,11 @@ tcr.startNTP();
 std::string search_str;
 String tmsg = tcr.searchTwitter(search_str);
 ```
+** Search Twitter User Info (eg follower count)
+```
+std::string search_str;
+tcr.searchUser(search_str);
+```
 **Post to Twitter**
 ```
 std::string twitter_post_msg;
