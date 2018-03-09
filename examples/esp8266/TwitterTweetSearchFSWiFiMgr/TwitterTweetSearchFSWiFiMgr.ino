@@ -15,9 +15,13 @@
 
 //#define MAX7219DISPLAY                    // uncomment if using MAX7219-4-digit-display-for-ESP8266
 #ifdef MAX7219DISPLAY
-  #include <SPI.h>
-  #include <bitBangedSPI.h>
-  #include <MAX7219_Dot_Matrix.h>         // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
+#include <SPI.h>
+#include <bitBangedSPI.h>
+#include <MAX7219_Dot_Matrix.h>           // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
+// VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8 (configurable below), CLK -> D5
+const byte chips = 4;                     // Number of Display Chips
+MAX7219_Dot_Matrix display (chips, D8);   // Chips / LOAD
+unsigned long MOVE_INTERVAL = 20;         // (msec) increase to slow, decrease to fast
 #endif
 
 bool resetsettings = false;               // true to reset WiFiManager & delete FS files
@@ -33,12 +37,6 @@ unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls
   static char const consumer_sec[]    = "HbY5h$N86hg5jjd987HGFsRjJcMkjLaJw44628sOh353gI3H23";
   static char const accesstoken[]     = "041657084136508135-F3BE63U4Y6b346kj6bnkdlvnjbGsd3V";
   static char const accesstoken_sec[] = "bsekjH8YT3dCWDdsgsdHUgdBiosesDgv43rknU4YY56Tj";
-#endif
-#ifdef MAX7219DISPLAY
-// VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8 (configurable below), CLK -> D5
-const byte chips = 4;                     // Number of Display Chips
-MAX7219_Dot_Matrix display (chips, D8);   // Chips / LOAD
-unsigned long MOVE_INTERVAL = 20;         // (msec) increase to slow, decrease to fast
 #endif
 #ifndef AutoAP_password
   #define AutoAP_password "password"      // Dafault AP Password
@@ -201,6 +199,53 @@ void extractJSON(String tmsg) {
   delete [] msg2;
 }
 
+void extractTweetText(String tmsg) {
+  unsigned int msglen = tmsg.length();
+  
+  String seatchstr = ",\"text\":\""; 
+  unsigned int searchlen = seatchstr.length();
+  int pos1 = -1, pos2 = -1;
+  for(int i=0; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+      pos1 = i + searchlen;
+      break;
+    }
+  }
+  seatchstr = "\",\""; 
+  searchlen = seatchstr.length();
+  for(int i=pos1; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+      pos2 = i;
+      break;
+    }
+  }
+  String text = tmsg.substring(pos1, pos2);
+
+  seatchstr = ",\"screen_name\":\""; 
+  searchlen = seatchstr.length();
+  int pos3 = -1, pos4 = -1;
+  for(int i=pos2; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+      pos3 = i + searchlen;
+      break;
+    }
+  }
+  seatchstr = "\",\""; 
+  searchlen = seatchstr.length();
+  for(int i=pos3; i <= msglen - searchlen; i++) {
+    if(tmsg.substring(i,searchlen+i) == seatchstr) {
+      pos4 = i;
+      break;
+    }
+  }
+  String usert = "@" + tmsg.substring(pos3, pos4);
+
+  if (text.length() >0 ) {
+    text =  usert + " says " + text;
+    search_msg = std::string(text.c_str(), text.length());
+  }
+}
+
 void updateDisplay(){
   char *msg = new char[search_msg.length() + 1];
   strcpy(msg, search_msg.c_str());
@@ -216,7 +261,7 @@ void updateDisplay(){
 	  #ifdef MAX7219DISPLAY
       display.sendString ("--------");
 	  #endif
-      extractJSON(tcr.searchTwitter(search_str));
+      extractTweetText(tcr.searchTwitter(search_str));
       DEBUG_PRINT("Search: ");
       DEBUG_PRINTLN(search_str.c_str());
       DEBUG_PRINT("MSG: ");
