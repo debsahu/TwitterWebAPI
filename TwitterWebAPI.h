@@ -1,12 +1,18 @@
+#include <ESP8266WiFi.h>
+#include <WiFiClientSecure.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <TimeLib.h>
 #include <stdint.h>
-#include <Client.h>
 #include <NTPClient.h>
 #include <time.h>
 #include <vector>
 #include <string>
 #include <algorithm>
 
-#define TIMEOUT 3000  // in msec
+#ifndef TWI_TIMEOUT
+  #define TWI_TIMEOUT 1500  // in msec
+#endif
 
 class misc {
 private:
@@ -922,7 +928,7 @@ public:
 
 class TwitterClient {
 private:
-  Client *client;
+  WiFiClientSecure *client;
   NTPClient *timeClient; 
   struct Data {
     oauth::Keys keys;
@@ -966,9 +972,7 @@ private:
   };
   bool request(const std::string &url, RequestOption const &opt, String *reply)
   {
-    if (reply) {
-      *reply = "";
-    }
+    if (reply) *reply = "";
     if (opt.method == RequestOption::GET) {
         if (opt.upload_path.empty()) {
           String host, path;
@@ -979,11 +983,9 @@ private:
           path = l.path().c_str();
           port = l.port();
           }
-        if (client->connect(host.c_str(), port)) {
-          String body;
-          bool avail = false;
-          unsigned long now = millis();
-          
+		if (client->connected()) { client->flush(); client->stop(); }
+		client->setTimeout(TWI_TIMEOUT);
+        if (client->connect(host.c_str(), port)) {   
 //          Serial.print("GET " + path );
 //          Serial.print(opt.right_str.c_str());
 //          Serial.println(" HTTP/1.1");
@@ -1007,37 +1009,20 @@ private:
           client->print("Authorization: OAuth");
           client->println(opt.get_begin);
           client->println("");
-
-//          String header; bool textb = false;
-
-          while (millis() - now < 5000) {
-            while (client->available()) {
-              client->setTimeout(TIMEOUT);
-              body = client->readStringUntil('\r');
-              avail = true; //yield();
-//              Serial.println(body);
-//              if (!textb) {
-//                header = client->readStringUntil('\r');
-//                Serial.println(header);
-//                avail = true;
-//                if (header.endsWith("i/xss_report")) { textb = true; }
-//              } else {
-//                
-//                body = client->readString();
-//                Serial.println(body);
-//              }
-            }
-            if (avail) break;
+		  
+          while (client->connected()) {
+            String header = client->readStringUntil('\n');
+            if (header == "\r") break; // headers received
           }
-          *reply = body;
-//          Serial.println(reply->c_str());
-          client->flush();
-          client->stop();
+		  *reply = client->readString();
+          //String body = client->readString();
+		  //*reply = body;
+		  if (client->available()) { client->flush(); client->stop(); }
           return true;
         }
       }
     } else if (opt.method == RequestOption::POST) {
-      //if (reply) reply->clear();
+      if (reply) *reply = "";;
       if (opt.upload_path.empty()) {
         String host, path;
         int port = 0;
@@ -1047,6 +1032,8 @@ private:
           path = l.path().c_str();
           port = l.port();
         }
+		if (client->connected()) { client->flush(); client->stop(); }
+		client->setTimeout(TWI_TIMEOUT);
         if (client->connect(host.c_str(), port)) {
           int len = opt.post_end - opt.post_begin;
           client->println("POST " + path + " HTTP/1.1");
@@ -1058,12 +1045,10 @@ private:
           client->println(len);
           client->println();
           client->write((uint8_t const *)opt.post_begin, len);
-          client->setTimeout(TIMEOUT);
           String s = client->readString();
           *reply = s;
           //Serial.println("Tweeted");
-          client->flush();
-          client->stop();
+          if (client->available()) { client->flush(); client->stop(); }
           return true;
         }
       } else {
@@ -1076,7 +1061,7 @@ public:
   TwitterClient()
   {
   }
-  TwitterClient(Client &client, NTPClient &timeClient, std::string const &consumer_key, std::string const &consumer_sec, std::string const &accesstoken, std::string const &accesstoken_sec)
+  TwitterClient(WiFiClientSecure &client, NTPClient &timeClient, std::string const &consumer_key, std::string const &consumer_sec, std::string const &accesstoken, std::string const &accesstoken_sec)
   {
     this->client = &client;
     this->timeClient = &timeClient;
@@ -1088,6 +1073,24 @@ public:
 
   void startNTP() 
   {
+	//client->setTimeout(TWI_TIMEOUT);
+    timeClient->begin();
+    timeClient->forceUpdate();
+  }
+  
+  void startNTP(int timeOffset) 
+  {
+	//client->setTimeout(TWI_TIMEOUT);
+	timeClient->setTimeOffset(timeOffset);
+    timeClient->begin();
+    timeClient->forceUpdate();
+  }
+  
+  void startNTP(int timeOffset, int updateInterval) 
+  {
+	//client->setTimeout(TWI_TIMEOUT);
+	timeClient->setTimeOffset(timeOffset);
+	timeClient->setUpdateInterval(updateInterval);
     timeClient->begin();
     timeClient->forceUpdate();
   }
@@ -1134,10 +1137,10 @@ public:
   {
     timeClient->update();
     time_t currentTime = (time_t) timeClient->getEpochTime();
-//    Serial.print("Epoch: "); Serial.println(currentTime);
+    //Serial.print("Epoch: "); Serial.println(currentTime);
     
     if (message.empty()) {
-      return "Error with search term!";
+      return "Error with user search term!";
     }
 
     std::string url = "https://api.twitter.com/1.1/search/tweets.json";

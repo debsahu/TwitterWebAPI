@@ -147,6 +147,7 @@ void loop(void){
     Serial.println(search_msg.c_str());
     api_lasttime = millis();
   }
+  delay(2);
   yield();
   digitalWrite(LED_BUILTIN, HIGH);
 }

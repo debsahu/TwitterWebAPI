@@ -106,9 +106,10 @@ void getSearchWord() {
    webpage += "</head>";
    webpage += "<body>";
     webpage += "<br>";  
-    webpage += "<form action='http://"+WiFi.localIP().toString()+"/processreadtweet' method='POST'>";
+    webpage += "<form action='/processreadtweet' method='POST'>";
      webpage += "<center><input type='text' name='search_input' value='"+String(search_str.c_str())+"' placeholder='Twitter Search'></center><br>";
      webpage += "<center><input type='submit' value='Update Search Keyword'></center>";
+	 webpage += "<br><center><a href='/readtweet'>Latest Received Message</a></center>";
     webpage += "</form>";
    webpage += "</body>";
   webpage += "</html>";
@@ -144,7 +145,7 @@ void readTweet(){
   t += "<body>";
   t += "<center><p>Searching Twitter for: " + String(search_str.c_str()) + "</p></center>";
   t += "<center><p>Latest Message: " + String(search_msg.c_str()) + "</p></center>";
-  t += "<br><center><a href='http://" + WiFi.localIP().toString() + "/search'>Update Search Term?</a></center>";
+  t += "<br><center><a href='/search'>Update Search Term?</a></center>";
   t += "</form>";
   t += "</body>";
   t += "</html>";
@@ -252,6 +253,7 @@ void loop(void){
     Serial.println(search_msg.c_str());
     api_lasttime = millis();
   }
+  delay(2);
   yield();
   digitalWrite(LED_BUILTIN, HIGH);
 }

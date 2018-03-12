@@ -11,6 +11,7 @@
 #include <TimeLib.h>
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
+//#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
 #include <TwitterWebAPI.h>
 
 //#define MAX7219DISPLAY                    // uncomment if using MAX7219-4-digit-display-for-ESP8266
@@ -28,7 +29,7 @@ bool resetsettings = false;               // true to reset WiFiManager & delete 
 const char *HOSTNAME= "TwitterDisplay";   // Hostname of your device
 std::string search_str = "#dog";          // Default search word for twitter
 const char *ntp_server = "pool.ntp.org";  // time1.google.com, time.nist.gov, pool.ntp.org
-int timezone = -5;                        // US Eastern timezone -05:00 HRS
+int timezone = -4;                        // US Eastern timezone -05:00 HRS
 unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls/15 min). Any value less than 5 is ignored!
 
 // Values below are just a placeholder
@@ -70,6 +71,7 @@ ESP8266HTTPUpdateServer httpUpdater;
 
 // Helper
 #define MODEBUTTON 0
+#define LED_BUILTIN 2
 #define SERIALDEBUG true
 
 #ifdef SERIALDEBUG
@@ -81,6 +83,36 @@ ESP8266HTTPUpdateServer httpUpdater;
 #define         DEBUG_PRINTLN(x)
 #define         DEBUG_PRINTF(x,y)
 #endif
+
+String convertUnicode(String unicodeStr){
+  String out = "";
+  char iChar;
+  char* error;
+  for (int i = 0; i < unicodeStr.length(); i++){
+     iChar = unicodeStr[i];
+     if(iChar == '\\'){ // got escape char
+       iChar = unicodeStr[++i];
+       if(iChar == 'u'){ // got unicode hex
+         char unicode[6];
+         unicode[0] = '0';
+         unicode[1] = 'x';
+         for (int j = 0; j < 4; j++){
+           iChar = unicodeStr[++i];
+           unicode[j + 2] = iChar;
+         }
+         long unicodeVal = strtol(unicode, &error, 16); //convert the string
+         out += (char)unicodeVal;
+       } else if(iChar == '/'){
+         out += iChar;
+       } else if(iChar == 'n'){
+         out += '\n';
+       }
+     } else {
+       out += iChar;
+     }
+  }
+  return out;
+}
 
 // flag for saving data
 bool shouldSaveConfig = false;
@@ -213,7 +245,9 @@ void extractTweetText(String tmsg) {
   long msglen = tmsg.length();
   DEBUG_PRINT(": ");
   DEBUG_PRINTLN(msglen);
-  if (msglen <= 0) return;
+//  DEBUG_PRINT("MSG: ");
+//  DEBUG_PRINTLN(tmsg);
+  if (msglen <= 31) return;
   
   String searchstr = ",\"text\":\""; 
   unsigned int searchlen = searchstr.length();
@@ -254,7 +288,8 @@ void extractTweetText(String tmsg) {
   String usert = "@" + tmsg.substring(pos3, pos4);
 
   if (text.length() > 0) {
-    text =  usert + " says " + text;
+    if (usert.length() > 1) text =  usert + " says " + text;
+    text=convertUnicode(text);
     search_msg = std::string(text.c_str(), text.length());
   }
 }
@@ -322,9 +357,10 @@ void getSearchWord() {
    webpage += "</head>";
    webpage += "<body>";
     webpage += "<br>";  
-    webpage += "<form action='http://"+WiFi.localIP().toString()+"/processreadtweet' method='POST'>";
+    webpage += "<form action='/processreadtweet' method='POST'>";
      webpage += "<center><input type='text' name='search_input' value='"+String(search_str.c_str())+"' placeholder='Twitter Search'></center><br>";
      webpage += "<center><input type='submit' value='Update Search Keyword'></center>";
+      webpage += "<br><center><a href='/readtweet'>Latest Received Message</a></center>";
     webpage += "</form>";
    webpage += "</body>";
   webpage += "</html>";
@@ -360,7 +396,7 @@ void readTweet(){
   t += "<body>";
   t += "<center><p>Searching Twitter for: " + String(search_str.c_str()) + "</p></center>";
   t += "<center><p>Latest Message: " + String(search_msg.c_str()) + "</p></center>";
-  t += "<br><center><a href='http://" + WiFi.localIP().toString() + "/search'>Update Search Term?</a></center>";
+  t += "<br><center><a href='/search'>Update Search Term?</a></center>";
   t += "</form>";
   t += "</body>";
   t += "</html>";
@@ -372,7 +408,7 @@ void processReadTweet(){
     for ( uint8_t i = 0; i < server.args(); i++ ) {
       DEBUG_PRINT(server.argName(i)); // Display the argument
       if (server.argName(i) == "search_input") {
-        DEBUG_PRINT("Input received was: ");
+        DEBUG_PRINT(" : ");
         DEBUG_PRINTLN(server.arg(i));
         search_str=std::string(server.arg(i).c_str());
         if(writetoFS(true)) DEBUG_PRINTLN(". done writing!"); // FS save
@@ -385,10 +421,11 @@ void processReadTweet(){
   t += "<head>";
   t += "<meta name='viewport' content='width=device-width,initial-scale=1' />";
   t += "<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />";
+  t += "<meta http-equiv='refresh' content='3;url=/search'/>";
   t += "</had>";
   t += "<body>";
   t += "<center><p>Updated search term: " + String(search_str.c_str()) + "</p></center>";
-  t += "<br><center><a href='http://" + WiFi.localIP().toString() + "/search'>Update again?</a></center>";
+  t += "<br><center><a href='/search'>Update again?</a></center>";
   t += "</form>";
   t += "</body>";
   t += "</html>";
@@ -412,77 +449,54 @@ void handleNotFound(){
 
 void setup(void){
   if (twi_update_interval < 5) api_mtbs = 5000; // Cant update faster than 5s.
-
   #ifdef MAX7219DISPLAY
   display.begin();
   display.setIntensity(9);
   #endif
-  
   pinMode(MODEBUTTON, INPUT);  // MODEBUTTON as input for Config mode selection
 
   //Begin Serial
   Serial.begin(115200);
-  
   if(readfromFS()) DEBUG_PRINTLN("Done reading");
   
   //WiFiManager
-  //Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-
-  //set config save notify callback
-  wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-  //add all your parameters here
+  WiFiManager wifiManager;                                          //Local intialization. Once its business is done, there is no need to keep it around
+  wifiManager.setSaveConfigCallback(saveConfigCallback);            //set config save notify callback
   WiFiManagerParameter custom_search_str("search", "Twitter Search", search_str.c_str(), 40);
   wifiManager.addParameter(&custom_search_str);
-
-  //reset settings - for testing
-  if (resetsettings) wifiManager.resetSettings();
-  
-  //set minimu quality of signal so it ignores AP's under that quality defaults to 8%
-  //wifiManager.setMinimumSignalQuality();
-  
-  // Debug output. TRUE: WM debug messages enabled, FALSE: WM debug messages disabled
-  wifiManager.setDebugOutput(SERIALDEBUG);
-  
-  //sets timeout until configuration portal gets turned off, useful to make it all retry or go to sleep in seconds
-  wifiManager.setTimeout(180);
-
-  //fetches ssid and pass and tries to connect if it does not connect it starts an access point with the specified name here  "AutoConnectAP" and goes into a blocking loop awaiting configuration
-  if (!wifiManager.autoConnect(HOSTNAME, AutoAP_password)) {
+  if (resetsettings) wifiManager.resetSettings();                   //reset settings - for testing
+  //wifiManager.setMinimumSignalQuality();                            //set minimu quality of signal so it ignores AP's under that quality defaults to 8%
+  wifiManager.setDebugOutput(SERIALDEBUG);                          // Debug output. TRUE: WM debug messages enabled, FALSE: WM debug messages disabled
+  wifiManager.setTimeout(180);                                      //sets timeout until configuration portal gets turned off, useful to make it all retry or go to sleep in seconds
+  if (!wifiManager.autoConnect(HOSTNAME, AutoAP_password)) {        //fetches ssid and pass and tries to connect if it does not connect it starts an access point with the specified name here  "AutoConnectAP" and goes into a blocking loop awaiting configuration
     DEBUG_PRINTLN("failed to connect and hit timeout");
     delay(3000);
-    //reset and try again, or maybe put it to deep sleep
-    //ESP.reset();
-    ESP.restart();
+    //ESP.reset(); //reset and try again, or maybe put it to deep sleep
+    ESP.restart(); //restart and try again, or maybe put it to deep sleep
     delay(5000);
   }
-  
-  DEBUG_PRINTLN("connected...yeey :)"); // if you get here you have connected to the WiFi
-  search_str = std::string(custom_search_str.getValue()); //read updated parameters
-  if(writetoFS(shouldSaveConfig)) DEBUG_PRINTLN("Done writing"); //save the custom parameters to FS
-  DEBUG_PRINT("Local IP: ");
-  DEBUG_PRINTLN(WiFi.localIP());
-
+  DEBUG_PRINT("Local IP: "); DEBUG_PRINTLN(WiFi.localIP());
+  DEBUG_PRINTLN("connected.");                                       // if you get here you have connected to the WiFi
+  search_str = std::string(custom_search_str.getValue());            //read updated parameters
+  if(writetoFS(shouldSaveConfig)) DEBUG_PRINTLN("Done writing");     //save the custom parameters to FS
   delay(100);
-
 
   // Connect to NTP and force-update time
   tcr.startNTP();
   DEBUG_PRINTLN("NTP Synced");
   delay(100);
+  
   // Setup internal LED
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
 
   // MDNS Server
-  if (MDNS.begin(HOSTNAME)) {              // Start the mDNS responder for esp8266.local
+  if (MDNS.begin(HOSTNAME)) {                                        // Start the mDNS responder for esp8266.local
     DEBUG_PRINTLN("mDNS responder started.");
     DEBUG_PRINT("Goto http://");
     DEBUG_PRINT(HOSTNAME);
-    DEBUG_PRINTLN(".local/ on web-browser if you are on the same network!");
-    DEBUG_PRINT("or goto http://");
-    DEBUG_PRINTLN(WiFi.localIP());
+    DEBUG_PRINTLN(".local/ on bojour-client if you are on the same network!");
+    DEBUG_PRINT("or goto http://"); DEBUG_PRINT(WiFi.localIP()); DEBUG_PRINTLN("/");
   } else {
     DEBUG_PRINTLN("Error setting up MDNS responder!");
   }
@@ -505,28 +519,18 @@ void loop(void){
   
    if ( digitalRead(MODEBUTTON) == LOW ) {
     DEBUG_PRINTLN("+++");
-  
     //WiFiManager
     WiFiManager wifiManager;
     wifiManager.setTimeout(180);
     wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-    //add all your parameters here
     WiFiManagerParameter custom_search_str("search", "Twitter Search", search_str.c_str(), 40);
     wifiManager.addParameter(&custom_search_str);
-
     if (!wifiManager.startConfigPortal((const char *) String(String(HOSTNAME) + String("OnDemandAP")).c_str(), AutoAP_password)) {
       DEBUG_PRINTLN("failed to connect and hit timeout");
-      delay(3000);
-      //reset and try again, or maybe put it to deep sleep
-      ESP.reset();
-      delay(5000);
+      delay(3000); ESP.reset(); delay(5000);
     }
-    //read updated parameters
-    search_str = std::string(custom_search_str.getValue());
-
-    //FS save
-    if(writetoFS(shouldSaveConfig)) DEBUG_PRINTLN("Done writing");;
+    search_str = std::string(custom_search_str.getValue());           //read updated parameters
+    if(writetoFS(shouldSaveConfig)) DEBUG_PRINTLN("Done writing");;   //FS save
   }
   
   if ((millis() > api_lasttime + api_mtbs) and !(updateFS))  {
@@ -543,5 +547,6 @@ void loop(void){
   }
   #endif
   yield();
+  delay(2); //do something or else esp8266 is not happy, can remove this line if doing something else
   digitalWrite(LED_BUILTIN, HIGH);
 }

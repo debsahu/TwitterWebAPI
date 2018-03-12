@@ -21,6 +21,10 @@ To use in your sketch include these lines.
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 ```
+Define Twitter GET request timeout (optional, default is 2000ms)
+```
+#define TWI_TIMEOUT 2000  // in msec
+```
 Setup correct timezone to correct the time obtained from NTP server.
 ```
 const char *ntp_server = "pool.ntp.org";  // time1.google.com, time.nist.gov, pool.ntp.org
@@ -51,7 +55,7 @@ tcr.startNTP();
 std::string search_str;
 String tmsg = tcr.searchTwitter(search_str);
 ```
-** Search Twitter User Info (eg follower count)
+**Search Twitter User Info (eg follower count)**
 ```
 std::string search_str;
 tcr.searchUser(search_str);
