@@ -6,6 +6,10 @@
 #define ota_user "ota_admin"            // OTA username
 #define ota_password "ota_pwd"          // OTA password
 
+//Display
+//#define MAX7219DISPLAY                    // uncomment if using MAX7219-4-digit-display-for-ESP8266
+#define MD_PAROLA_DISPLAY                 // uncomment to use MD Parola Library
+
 // Twitter info
 #define TWITTERINFO
 // Values below are just a placeholder

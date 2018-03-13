@@ -14,15 +14,29 @@
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
 #include <TwitterWebAPI.h>
 
+// Choose one of the options below for MAX7219 Display
 //#define MAX7219DISPLAY                    // uncomment if using MAX7219-4-digit-display-for-ESP8266
+//#define MD_PAROLA_DISPLAY                 // uncomment if using MD Parola Library for MAX7219
+
 #ifdef MAX7219DISPLAY
-#include <SPI.h>
-#include <bitBangedSPI.h>
-#include <MAX7219_Dot_Matrix.h>           // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
-// VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8 (configurable below), CLK -> D5
-const byte chips = 4;                     // Number of Display Chips
-MAX7219_Dot_Matrix display (chips, D8);   // Chips / LOAD
-unsigned long MOVE_INTERVAL = 20;         // (msec) increase to slow, decrease to fast
+  #include <SPI.h>
+  #include <bitBangedSPI.h>
+  #include <MAX7219_Dot_Matrix.h>           // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
+  // VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8 (configurable below), CLK -> D5
+  const byte chips = 4;                     // Number of Display Chips
+  MAX7219_Dot_Matrix display (chips, D8);   // Chips / LOAD
+  unsigned long MOVE_INTERVAL = 20;         // (msec) increase to slow, decrease to fast
+#endif
+
+#ifdef MD_PAROLA_DISPLAY
+  #include <MD_Parola.h>                    // https://github.com/MajicDesigns/MD_Parola
+  #include <MD_MAX72xx.h>                   // https://github.com/MajicDesigns/MD_MAX72xx
+  #include <SPI.h>                          // ^ edit MD_MAX72xx.h #define USE_PAROLA_HW 0 and #define USE_FC16_HW 1 if using FC16 dotmatrix display
+  // VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8, CLK -> D5
+  #define MAX_DEVICES 4
+  #define CLK_PIN    D5
+  #define DATA_PIN   D7
+  #define CS_PIN     D8
 #endif
 
 bool resetsettings = false;               // true to reset WiFiManager & delete FS files
@@ -55,17 +69,26 @@ unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls
 //   Dont change anything below this line    //
 ///////////////////////////////////////////////
 
+#if defined(MAX7219DISPLAY) and defined(MD_PAROLA_DISPLAY)
+  #error "Cant have both MAX7219DISPLAY and MD_PAROLA_DISPLAY enabled."
+#endif
+
 unsigned long api_mtbs = twi_update_interval * 1000; //mean time between api requests
 unsigned long api_lasttime = 0; 
 bool twit_update = false;
 std::string search_msg = "No Message Yet!";
+#ifdef MAX7219DISPLAY
 unsigned long lastMoved = 0;
 int  messageOffset;
+#endif
+#ifdef MD_PAROLA_DISPLAY
+MD_Parola P = MD_Parola(DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
+char curmsg[512];
+#endif
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-WiFiClientSecure espclient;
-TwitterClient tcr(espclient, timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
 
@@ -306,15 +329,24 @@ void updateDisplay(){
   #endif
     if (twit_update) {
       digitalWrite(LED_BUILTIN, LOW);
-	  #ifdef MAX7219DISPLAY
+	    #ifdef MAX7219DISPLAY
       display.sendString ("--------");
-	  #endif
+	    #endif
+      #ifdef MD_PAROLA_DISPLAY
+      P.displayClear();
+      P.print("--------");
+      #endif
       extractTweetText(tcr.searchTwitter(search_str));
 //      extractJSON(tcr.searchTwitter(search_str)); // ArduinoJSON crashes esp8266, twitter info is too long
       DEBUG_PRINT("Search: ");
       DEBUG_PRINTLN(search_str.c_str());
       DEBUG_PRINT("MSG: ");
       DEBUG_PRINTLN(search_msg.c_str());
+      #ifdef MD_PAROLA_DISPLAY
+      strcpy(curmsg,search_msg.c_str());
+      P.displayClear();
+      P.displayText(curmsg,PA_LEFT,25,1000,PA_SCROLL_LEFT,PA_SCROLL_LEFT);
+      #endif
       twit_update = false;
     }
   #ifdef MAX7219DISPLAY
@@ -453,6 +485,13 @@ void setup(void){
   display.begin();
   display.setIntensity(9);
   #endif
+  #ifdef MD_PAROLA_DISPLAY
+  strcpy(curmsg,search_msg.c_str());
+  P.begin();
+  P.setInvert(false);
+  P.setIntensity(7);
+  P.displayText(curmsg,PA_LEFT,25,1000,PA_SCROLL_LEFT,PA_SCROLL_LEFT);
+  #endif
   pinMode(MODEBUTTON, INPUT);  // MODEBUTTON as input for Config mode selection
 
   //Begin Serial
@@ -544,6 +583,12 @@ void loop(void){
   if (millis() - lastMoved >= MOVE_INTERVAL){
     updateDisplay();
     lastMoved = millis();
+  }
+  #endif
+  #ifdef MD_PAROLA_DISPLAY
+  if (P.displayAnimate()) {
+    updateDisplay();
+    P.displayReset();
   }
   #endif
   yield();

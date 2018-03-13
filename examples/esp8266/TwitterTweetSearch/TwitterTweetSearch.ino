@@ -7,6 +7,7 @@
 #include <TimeLib.h>
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
+//#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
 #include <TwitterWebAPI.h>
 
 #ifndef WIFICONFIG
@@ -38,8 +39,7 @@ std::string search_msg = "No Message Yet!";
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-WiFiClientSecure espclient;
-TwitterClient tcr(espclient, timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 
 ESP8266WebServer server(80);
 

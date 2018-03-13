@@ -21,7 +21,7 @@ To use in your sketch include these lines.
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 ```
-Define Twitter GET request timeout (optional, default is 2000ms)
+Define Twitter GET request timeout (optional, default is 1500ms)
 ```
 #define TWI_TIMEOUT 2000  // in msec
 ```
@@ -43,8 +43,7 @@ Declare clients before setup().
 ```
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-WiFiClientSecure espclient;
-TwitterClient tcr(espclient, timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 ```
 In setup make sure to start NTP connection. A correct time is required to be able to post/search on Twitter.
 ```
