@@ -64,3 +64,12 @@ tcr.searchUser(search_str);
 std::string twitter_post_msg;
 tcr.tweet(twitter_post_msg);
 ```
+## Example: TwitterTweetSearchFSWiFiMgr
+You will need to install following libraries in addition to TwitterWebAPI
+* [Arduino JSON](https://github.com/bblanchon/ArduinoJson)
+* [WiFiManager](https://github.com/tzapu/WiFiManager)
+
+For display you can either install
+* [MAX7219 library](https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266)
+or 
+* [MD Parola](https://github.com/MajicDesigns/MD_Parola) & [MD_Max72xx](https://github.com/MajicDesigns/MD_MAX72xx)
