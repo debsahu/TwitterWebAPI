@@ -19,8 +19,6 @@
 //#define MD_PAROLA_DISPLAY                 // uncomment if using MD Parola Library for MAX7219
 
 #ifdef MAX7219DISPLAY
-  #include <SPI.h>
-  #include <bitBangedSPI.h>
   #include <MAX7219_Dot_Matrix.h>           // https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266
   // VCC -> 5V, GND -> GND, DIN -> D7, CS -> D8 (configurable below), CLK -> D5
   const byte chips = 4;                     // Number of Display Chips
