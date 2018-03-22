@@ -14,6 +14,7 @@ Fill the obtained Consumer Key, Consumer Secret, Access Token and Access Token S
 ## Using the Library
 * Download this GitHub [library](https://github.com/debsahu/TwitterWebAPI/archive/master.zip).
 * In Arduino, Goto Sketch -> Include Library -> Add .ZIP Library... and point to the zip file downloaded.
+* Install [TimeLib library](https://github.com/PaulStoffregen/Time) using the same procedure.
 
 To use in your sketch include these lines.
 ```
@@ -65,11 +66,11 @@ std::string twitter_post_msg;
 tcr.tweet(twitter_post_msg);
 ```
 ## Example: TwitterTweetSearchFSWiFiMgr
-You will need to install following libraries in addition to TwitterWebAPI
+Be sure that [TimeLib library](https://github.com/PaulStoffregen/Time) is installed, please install the following libraries in addition to TwitterWebAPI
 * [Arduino JSON](https://github.com/bblanchon/ArduinoJson)
 * [WiFiManager](https://github.com/tzapu/WiFiManager)
 
 For display you can either install
-* [MAX7219 library](https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266)
+* [MAX7219 library](https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266) 
 or 
 * [MD Parola](https://github.com/MajicDesigns/MD_Parola) & [MD_Max72xx](https://github.com/MajicDesigns/MD_MAX72xx)
