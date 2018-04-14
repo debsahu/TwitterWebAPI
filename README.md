@@ -2,6 +2,8 @@
 
 An Arduino library to talk to Twitter using [Twitter Web API](https://dev.twitter.com/overview/api) made for ESP8266. This is based on a sketch posted [here](https://github.com/soramimi/ESP8266Tweet). There are other approaches like using a bearer token [arduino-twitter-api](https://github.com/witnessmenow/arduino-twitter-api), but there are limitations in terms of not being able to send tweet. This can both search/read and post tweets.
 
+[![ESP8266 TwitterWebAPI](https://img.youtube.com/vi/ZDGhFYGj5tc/0.jpg)](https://www.youtube.com/watch?v=ZDGhFYGj5tc)
+
 ## Consumer Key, Consumer Secret, Access Token & Access Token Secret
 In order to talk to Twitter,
 
