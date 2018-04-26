@@ -1,8 +1,5 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-#include <TimeLib.h>
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
@@ -33,9 +30,7 @@ unsigned long api_lasttime = 0;
 bool twit_update = false;
 std::string search_msg = "No Message Yet!";
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 
 void setup(void){
   //Begin Serial
@@ -54,7 +49,7 @@ void setup(void){
   Serial.println(WiFi.localIP());
   delay(100);
   // Connect to NTP and force-update time
-  tcr.startNTP();
+  tcr.startNTP(ntp_server, timezone);
   Serial.println("NTP Synced");
   delay(100);
   // Setup internal LED
@@ -63,16 +58,16 @@ void setup(void){
   if (twi_update_interval < 5) api_mtbs = 5000; // Cant update faster than 5s.
 }
 
-void extractJSON(String tmsg) {
-  const char* msg2 = const_cast <char*> (tmsg.c_str());
-//  DynamicJsonBuffer jsonBuffer;
-  const size_t bufferSize = 5*JSON_ARRAY_SIZE(0) + 4*JSON_ARRAY_SIZE(1) + 3*JSON_ARRAY_SIZE(2) + 3*JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 8*JSON_OBJECT_SIZE(3) + 3*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 2*JSON_OBJECT_SIZE(10) + JSON_OBJECT_SIZE(24) + JSON_OBJECT_SIZE(43) + 6060;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject& response = jsonBuffer.parseObject(msg2);
+void extractJSON(String &tmsg) {
+//  const char* msg2 = const_cast <char*> (tmsg.c_str());
+  DynamicJsonBuffer jsonBuffer;
+//  const size_t bufferSize = 5*JSON_ARRAY_SIZE(0) + 4*JSON_ARRAY_SIZE(1) + 3*JSON_ARRAY_SIZE(2) + 3*JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 8*JSON_OBJECT_SIZE(3) + 3*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 2*JSON_OBJECT_SIZE(10) + JSON_OBJECT_SIZE(24) + JSON_OBJECT_SIZE(43) + 6060;
+//  DynamicJsonBuffer jsonBuffer(bufferSize);
+  JsonObject& response = jsonBuffer.parseObject(tmsg);
   
   if (!response.success()) {
     Serial.println("Failed to parse JSON!");
-    Serial.println(msg2);
+    Serial.println(tmsg);
 //    jsonBuffer.clear();
     return;
   }
@@ -82,7 +77,7 @@ void extractJSON(String tmsg) {
   search_msg = std::string(text.c_str(), text.length());
   
   jsonBuffer.clear();
-  delete [] msg2;
+//  delete [] msg2;
 }
 
 void extractTweetText(String tmsg) {
@@ -139,8 +134,9 @@ void extractTweetText(String tmsg) {
 void loop(void){
   if (millis() > api_lasttime + api_mtbs)  {
     digitalWrite(LED_BUILTIN, LOW);
-//    extractJSON(tcr.searchUser(search_str));
-    extractTweetText(tcr.searchUser(search_str));
+    String reply = tcr.searchUser(search_str);
+    //extractJSON(reply);
+    extractTweetText(reply);
     Serial.print("Search: ");
     Serial.println(search_str.c_str());
     Serial.print("MSG: ");

@@ -2,9 +2,6 @@
 #include <WiFiClientSecure.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-#include <TimeLib.h>
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
@@ -37,20 +34,18 @@ unsigned long api_lasttime = 0;
 bool twit_update = false;
 std::string search_msg = "No Message Yet!";
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 
 ESP8266WebServer server(80);
 
-void extractJSON(String tmsg) {
-  const char* msg2 = const_cast <char*> (tmsg.c_str());
+void extractJSON(String &tmsg) {
+  //const char* msg2 = const_cast <char*> (tmsg.c_str());
   DynamicJsonBuffer jsonBuffer;
-  JsonObject& response = jsonBuffer.parseObject(msg2);
+  JsonObject& response = jsonBuffer.parseObject(tmsg);
   
   if (!response.success()) {
     Serial.println("Failed to parse JSON!");
-    Serial.println(msg2);
+    Serial.println(tmsg);
 //    jsonBuffer.clear();
     return;
   }
@@ -70,7 +65,7 @@ void extractJSON(String tmsg) {
   }
   
   jsonBuffer.clear();
-  delete [] msg2;
+  //delete [] msg2;
 }
 
 void handleRoot() {
@@ -210,7 +205,7 @@ void setup(void){
   Serial.println(WiFi.localIP());
   delay(100);
   // Connect to NTP and force-update time
-  tcr.startNTP();
+  tcr.startNTP(ntp_server, timezone);
   Serial.println("NTP Synced");
   delay(100);
   // Setup internal LED
@@ -246,7 +241,8 @@ void loop(void){
   
   if (millis() > api_lasttime + api_mtbs)  {
     digitalWrite(LED_BUILTIN, LOW);
-    extractJSON(tcr.searchTwitter(search_str));
+    String reply = tcr.searchTwitter(search_str);
+    extractJSON(reply);
     Serial.print("Search: ");
     Serial.println(search_str.c_str());
     Serial.print("MSG: ");

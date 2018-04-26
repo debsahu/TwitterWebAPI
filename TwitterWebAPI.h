@@ -1,10 +1,11 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-#include <TimeLib.h>
+//#include <NTPClient.h>
+//#include <WiFiUdp.h>
+//#include <TimeLib.h>
 #include <stdint.h>
-#include <NTPClient.h>
+#include <sys/time.h>
+#include <coredecls.h>
 #include <time.h>
 #include <vector>
 #include <string>
@@ -929,7 +930,9 @@ public:
 class TwitterClient {
 private:
   //WiFiClientSecure *client;
-  NTPClient *timeClient; 
+  //NTPClient *timeClient; 
+  timeval _cbtime;
+  time_t _now;
   struct Data {
     oauth::Keys keys;
   } data;
@@ -1063,45 +1066,78 @@ public:
   TwitterClient()
   {
   }
-  TwitterClient(NTPClient &timeClient, std::string const &consumer_key, std::string const &consumer_sec, std::string const &accesstoken, std::string const &accesstoken_sec)
+  TwitterClient(std::string const &consumer_key, std::string const &consumer_sec, std::string const &accesstoken, std::string const &accesstoken_sec)
   {
     //this->client = &client;
-    this->timeClient = &timeClient;
+    //this->timeClient = &timeClient;
     data.keys.consumer_key = consumer_key;
     data.keys.consumer_sec = consumer_sec;
     data.keys.accesstoken = accesstoken;
     data.keys.accesstoken_sec = accesstoken_sec;
   }
-
+  
   void startNTP() 
   {
-	//client->setTimeout(TWI_TIMEOUT);
-    timeClient->begin();
-    timeClient->forceUpdate();
+	gettimeofday(&_cbtime, NULL);
+	configTime(0, 0, "pool.ntp.org");
+  }
+
+  void startNTP(uint8_t TIME_ZONE) 
+  {
+	gettimeofday(&_cbtime, NULL);
+	configTime(TIME_ZONE * 3600, 0, "pool.ntp.org");
   }
   
-  void startNTP(int timeOffset) 
+  void startNTP(uint8_t TIME_ZONE, uint32_t TIME_ZONE_OFFSET) 
   {
-	//client->setTimeout(TWI_TIMEOUT);
-	timeClient->setTimeOffset(timeOffset);
-    timeClient->begin();
-    timeClient->forceUpdate();
+	gettimeofday(&_cbtime, NULL);
+	configTime(TIME_ZONE * 3600, TIME_ZONE_OFFSET, "pool.ntp.org");
   }
   
-  void startNTP(int timeOffset, int updateInterval) 
+  void startNTP(const char * NTP_SERVER, uint8_t TIME_ZONE) 
   {
-	//client->setTimeout(TWI_TIMEOUT);
-	timeClient->setTimeOffset(timeOffset);
-	timeClient->setUpdateInterval(updateInterval);
-    timeClient->begin();
-    timeClient->forceUpdate();
+	gettimeofday(&_cbtime, NULL);
+	configTime(TIME_ZONE * 3600, 0, NTP_SERVER);
   }
+
+  void startNTP(const char * NTP_SERVER, uint8_t TIME_ZONE, uint32_t TIME_ZONE_OFFSET) 
+  {
+	gettimeofday(&_cbtime, NULL);
+	configTime(TIME_ZONE * 3600, TIME_ZONE_OFFSET, NTP_SERVER);
+  }
+  
+  // void startNTP() 
+  // {
+	////client->setTimeout(TWI_TIMEOUT);
+    //timeClient->begin();
+    //timeClient->forceUpdate();
+  // }
+  
+  // void startNTP(int timeOffset) 
+  // {
+	// //client->setTimeout(TWI_TIMEOUT);
+	// timeClient->setTimeOffset(timeOffset);
+    // timeClient->begin();
+    // timeClient->forceUpdate();
+  // }
+  
+  // void startNTP(int timeOffset, int updateInterval) 
+  // {
+	// //client->setTimeout(TWI_TIMEOUT);
+	// timeClient->setTimeOffset(timeOffset);
+	// timeClient->setUpdateInterval(updateInterval);
+    // timeClient->begin();
+    // timeClient->forceUpdate();
+  // }
   
   bool tweet(std::string message, const std::vector<std::string> *media_ids = nullptr)
   {
-    timeClient->update();
-    time_t currentTime = (time_t) timeClient->getEpochTime();
-//    Serial.print("Epoch: "); Serial.println(currentTime);
+	gettimeofday(&_cbtime, NULL);
+	_now = time(nullptr);
+	time_t currentTime = _now;
+    //timeClient->update();
+    //time_t currentTime = (time_t) timeClient->getEpochTime();
+    //Serial.print("Epoch: "); Serial.println(currentTime);
     
     if (message.empty()) {
       return false;
@@ -1137,8 +1173,11 @@ public:
 
   String searchTwitter(std::string message)
   {
-    timeClient->update();
-    time_t currentTime = (time_t) timeClient->getEpochTime();
+	gettimeofday(&_cbtime, NULL);
+	_now = time(nullptr);
+	time_t currentTime = _now;
+    //timeClient->update();
+    //time_t currentTime = (time_t) timeClient->getEpochTime();
     //Serial.print("Epoch: "); Serial.println(currentTime);
     
     if (message.empty()) {
@@ -1166,9 +1205,12 @@ public:
   
   String searchUser(std::string message)
   {
-    timeClient->update();
-    time_t currentTime = (time_t) timeClient->getEpochTime();
-//    Serial.print("Epoch: "); Serial.println(currentTime);
+	gettimeofday(&_cbtime, NULL);
+	_now = time(nullptr);
+	time_t currentTime = _now;
+    //timeClient->update();
+    //time_t currentTime = (time_t) timeClient->getEpochTime();
+    //Serial.print("Epoch: "); Serial.println(currentTime);
     
     if (message.empty()) {
       return "Error with search term!";

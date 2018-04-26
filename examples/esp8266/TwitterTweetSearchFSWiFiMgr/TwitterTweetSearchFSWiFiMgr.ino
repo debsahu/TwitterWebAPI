@@ -3,12 +3,8 @@
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
-#include <WiFiUdp.h>
-#include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
-#include <NTPClient.h>
-#include <TimeLib.h>
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
@@ -84,9 +80,7 @@ MD_Parola P = MD_Parola(DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
 char curmsg[512];
 #endif
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
 
@@ -519,7 +513,7 @@ void setup(void){
   delay(100);
 
   // Connect to NTP and force-update time
-  tcr.startNTP();
+  tcr.startNTP(ntp_server, timezone);
   DEBUG_PRINTLN("NTP Synced");
   delay(100);
   

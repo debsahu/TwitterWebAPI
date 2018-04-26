@@ -16,13 +16,11 @@ Fill the obtained Consumer Key, Consumer Secret, Access Token and Access Token S
 ## Using the Library
 * Download this GitHub [library](https://github.com/debsahu/TwitterWebAPI/archive/master.zip).
 * In Arduino, Goto Sketch -> Include Library -> Add .ZIP Library... and point to the zip file downloaded.
-* Install [TimeLib library](https://github.com/PaulStoffregen/Time) and [NTPClient library](https://github.com/arduino-libraries/NTPClient) using the same procedure.
+* Install Optional [Arduino JSON](https://github.com/bblanchon/ArduinoJson)
 
 To use in your sketch include these lines.
 ```
 #include <TwitterWebAPI.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
 ```
 Define Twitter GET request timeout (optional, default is 1500ms)
 ```
@@ -44,13 +42,11 @@ You **WILL** need **Consumer Key, Consumer Secret, Access Token and Access Token
 ```
 Declare clients before setup().
 ```
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 ```
 In setup make sure to start NTP connection. A correct time is required to be able to post/search on Twitter.
 ```
-tcr.startNTP();
+tcr.startNTP(ntp_server, timezone);
 ```
 **Search for a key word**
 ```
@@ -74,5 +70,5 @@ In addition to [TwitterWebAPI](https://github.com/debsahu/TwitterWebAPI), make s
 
 For display you can either install
 * [MAX7219 library](https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266) 
-or 
+       or 
 * [MD Parola](https://github.com/MajicDesigns/MD_Parola) & [MD_Max72xx](https://github.com/MajicDesigns/MD_MAX72xx)
