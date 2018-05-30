@@ -42,7 +42,8 @@ You **WILL** need **Consumer Key, Consumer Secret, Access Token and Access Token
 ```
 Declare clients before setup().
 ```
-TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+WiFiClientSecure sclient;
+TwitterClient tcr(sclient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 ```
 In setup make sure to start NTP connection. A correct time is required to be able to post/search on Twitter.
 ```

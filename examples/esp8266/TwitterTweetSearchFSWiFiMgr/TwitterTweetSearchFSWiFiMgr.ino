@@ -80,7 +80,8 @@ MD_Parola P = MD_Parola(DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
 char curmsg[512];
 #endif
 
-TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+WiFiClientSecure sclient;
+TwitterClient tcr(sclient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
 

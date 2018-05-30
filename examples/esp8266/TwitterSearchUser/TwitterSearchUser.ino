@@ -30,7 +30,8 @@ unsigned long api_lasttime = 0;
 bool twit_update = false;
 std::string search_msg = "No Message Yet!";
 
-TwitterClient tcr(consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+WiFiClientSecure sclient;
+TwitterClient tcr(sclient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 
 void setup(void){
   //Begin Serial

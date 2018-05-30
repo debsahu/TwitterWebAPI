@@ -929,7 +929,7 @@ public:
 
 class TwitterClient {
 private:
-  //WiFiClientSecure *client;
+  WiFiClientSecure *client;
   //NTPClient *timeClient; 
   timeval _cbtime;
   time_t _now;
@@ -986,10 +986,10 @@ private:
           path = l.path().c_str();
           port = l.port();
           }
-		WiFiClientSecure client;
-		if (client.connected()) { client.flush(); client.stop(); }
-		client.setTimeout(TWI_TIMEOUT);
-        if (client.connect(host.c_str(), port)) {   
+		//WiFiClientSecure client;
+		if (client->connected()) { client->flush(); client->stop(); }
+		client->setTimeout(TWI_TIMEOUT);
+        if (client->connect(host.c_str(), port)) {   
 //          Serial.print("GET " + path );
 //          Serial.print(opt.right_str.c_str());
 //          Serial.println(" HTTP/1.1");
@@ -1002,26 +1002,26 @@ private:
 //          Serial.println(opt.get_begin);
 //          Serial.println("");
 
-          client.print("GET " + path );
-          client.print(opt.right_str.c_str());
-          client.println(" HTTP/1.1");
-          client.println("Host: " + host);
-          client.println("User-Agent: ESP8266");
-          client.println("Accept: */*");
-          client.println("Connection: close");
-          client.println("Content-Type: application/x-www-form-urlencoded;");
-          client.print("Authorization: OAuth");
-          client.println(opt.get_begin);
-          client.println("");
+          client->print("GET " + path );
+          client->print(opt.right_str.c_str());
+          client->println(" HTTP/1.1");
+          client->println("Host: " + host);
+          client->println("User-Agent: ESP8266");
+          client->println("Accept: */*");
+          client->println("Connection: close");
+          client->println("Content-Type: application/x-www-form-urlencoded;");
+          client->print("Authorization: OAuth");
+          client->println(opt.get_begin);
+          client->println("");
 		  
-          while (client.connected()) {
-            String header = client.readStringUntil('\n');
+          while (client->connected()) {
+            String header = client->readStringUntil('\n');
             if (header == "\r") break; // headers received
           }
-		  *reply = client.readString();
-          //String body = client.readString();
+		  *reply = client->readString();
+          //String body = client->readString();
 		  //*reply = body;
-		  if (client.available()) { client.flush(); client.stop(); }
+		  if (client->available()) { client->flush(); client->stop(); }
           return true;
         }
       }
@@ -1036,24 +1036,24 @@ private:
           path = l.path().c_str();
           port = l.port();
         }
-		WiFiClientSecure client;
-		if (client.connected()) { client.flush(); client.stop(); }
-		client.setTimeout(TWI_TIMEOUT);
-        if (client.connect(host.c_str(), port)) {
+		//WiFiClientSecure client;
+		if (client->connected()) { client->flush(); client->stop(); }
+		client->setTimeout(TWI_TIMEOUT);
+        if (client->connect(host.c_str(), port)) {
           int len = opt.post_end - opt.post_begin;
-          client.println("POST " + path + " HTTP/1.1");
-          client.println("Host: " + host);
-          client.println("User-Agent: ESP8266");
-          client.println("Connection: close");
-          client.println("Content-Type: application/x-www-form-urlencoded;");
-          client.print("Content-Length: ");
-          client.println(len);
-          client.println();
-          client.write((uint8_t const *)opt.post_begin, len);
-          String s = client.readString();
+          client->println("POST " + path + " HTTP/1.1");
+          client->println("Host: " + host);
+          client->println("User-Agent: ESP8266");
+          client->println("Connection: close");
+          client->println("Content-Type: application/x-www-form-urlencoded;");
+          client->print("Content-Length: ");
+          client->println(len);
+          client->println();
+          client->write((uint8_t const *)opt.post_begin, len);
+          String s = client->readString();
           *reply = s;
           //Serial.println("Tweeted");
-          if (client.available()) { client.flush(); client.stop(); }
+          if (client->available()) { client->flush(); client->stop(); }
           return true;
         }
       } else {
@@ -1066,9 +1066,9 @@ public:
   TwitterClient()
   {
   }
-  TwitterClient(std::string const &consumer_key, std::string const &consumer_sec, std::string const &accesstoken, std::string const &accesstoken_sec)
+  TwitterClient(WiFiClientSecure &client, std::string const &consumer_key, std::string const &consumer_sec, std::string const &accesstoken, std::string const &accesstoken_sec)
   {
-    //this->client = &client;
+    this->client = &client;
     //this->timeClient = &timeClient;
     data.keys.consumer_key = consumer_key;
     data.keys.consumer_sec = consumer_sec;
@@ -1178,7 +1178,7 @@ public:
 	time_t currentTime = _now;
     //timeClient->update();
     //time_t currentTime = (time_t) timeClient->getEpochTime();
-    //Serial.print("Epoch: "); Serial.println(currentTime);
+    Serial.print("Epoch: "); Serial.println(currentTime);
     
     if (message.empty()) {
       return "Error with user search term!";
