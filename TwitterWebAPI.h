@@ -1171,7 +1171,7 @@ public:
     return request(oauth_req.url, opt, &res);
   }
 
-  String searchTwitter(std::string message)
+  String searchTwitter(std::string message, bool extended = false)
   {
 	gettimeofday(&_cbtime, NULL);
 	_now = time(nullptr);
@@ -1189,6 +1189,7 @@ public:
     url += "?q=";
     url += misc::url_encode(message);
     url += "&result_type=recent&count=1";
+	if(extended) url += "&tweet_mode=extended";
 
     oauth::Request oauth_req = oauth::sign(url.c_str(), oauth::GET, keys(), currentTime);
     String res;
@@ -1203,7 +1204,7 @@ public:
     }
   }
   
-  String searchUser(std::string message)
+  String searchUser(std::string message, bool extended = false)
   {
 	gettimeofday(&_cbtime, NULL);
 	_now = time(nullptr);
@@ -1220,7 +1221,8 @@ public:
     
     url += "?q=";
     url += misc::url_encode(message);
-    url += "&page=1&count=1";
+    url += "&count=2&include_entities=false&page=1";
+	if(extended) url += "&tweet_mode=extended";
 
     oauth::Request oauth_req = oauth::sign(url.c_str(), oauth::GET, keys(), currentTime);
     String res;
