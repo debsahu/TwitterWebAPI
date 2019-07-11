@@ -984,6 +984,7 @@ private:
           port = l.port();
           }
 		WiFiClientSecure client;
+		client.setInsecure();
 		if (client.connected()) { client.flush(); client.stop(); }
 		client.setTimeout(TWI_TIMEOUT);
         if (client.connect(host.c_str(), port)) {   
@@ -1034,6 +1035,7 @@ private:
           port = l.port();
         }
 		WiFiClientSecure client;
+		client.setInsecure();
 		if (client.connected()) { client.flush(); client.stop(); }
 		client.setTimeout(TWI_TIMEOUT);
         if (client.connect(host.c_str(), port)) {
