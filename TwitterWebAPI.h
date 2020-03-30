@@ -1309,6 +1309,7 @@ private:
           port = l.port();
         }
         //WiFiClientSecure client;
+        client->setInsecure();
         if (client->connected())
         {
           client->flush();
@@ -1375,6 +1376,7 @@ private:
           port = l.port();
         }
         //WiFiClientSecure client;
+        client->setInsecure();
         if (client->connected())
         {
           client->flush();
