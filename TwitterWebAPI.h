@@ -1318,18 +1318,6 @@ private:
         client->setTimeout(TWI_TIMEOUT);
         if (client->connect(host.c_str(), port))
         {
-          //          Serial.print("GET " + path );
-          //          Serial.print(opt.right_str.c_str());
-          //          Serial.println(" HTTP/1.1");
-          //          Serial.println("Host: " + host);
-          //          Serial.println("User-Agent: ESP8266");
-          //          Serial.println("Accept: */*");
-          //          Serial.println("Connection: close");
-          //          Serial.println("Content-Type: application/x-www-form-urlencoded;");
-          //          Serial.print("Authorization: OAuth");
-          //          Serial.println(opt.get_begin);
-          //          Serial.println("");
-
           client->print("GET " + path);
           client->print(opt.right_str.c_str());
           client->println(" HTTP/1.1");
@@ -1375,7 +1363,6 @@ private:
           path = l.path().c_str();
           port = l.port();
         }
-        //WiFiClientSecure client;
         client->setInsecure();
         if (client->connected())
         {
