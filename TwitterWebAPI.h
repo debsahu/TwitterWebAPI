@@ -1442,7 +1442,7 @@ public:
     struct tm timeinfo;
     gmtime_r(&now, &timeinfo);
     // Serial.print("Current time: ");
-    Serial.print(asctime(&timeinfo));
+    // Serial.print(asctime(&timeinfo));
   }
 
   void startNTP()
