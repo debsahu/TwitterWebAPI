@@ -1,7 +1,14 @@
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
+#ifdef ESP32
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WebServer.h>
+#elif defined(ESP8266)
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
+#else
+#error Platform not supported
+#endif
+
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
@@ -26,6 +33,8 @@ unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls
   static char const accesstoken_sec[] = "bsekjH8YT3dCWDdsgsdHUgdBiosesDgv43rknU4YY56Tj";
 #endif
 
+#define LED_BUILTIN 2
+
 //   Dont change anything below this line    //
 ///////////////////////////////////////////////
 
@@ -37,17 +46,22 @@ std::string search_msg = "No Message Yet!";
 WiFiClientSecure sclient;
 TwitterClient tcr(sclient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 
+#ifdef ESP32
+WebServer server(80);
+#elif defined(ESP8266)
 ESP8266WebServer server(80);
+#endif
+
 
 void extractJSON(String &tmsg) {
   //const char* msg2 = const_cast <char*> (tmsg.c_str());
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& response = jsonBuffer.parseObject(tmsg);
-  
-  if (!response.success()) {
+  DynamicJsonDocument response(5000);
+  auto error = deserializeJson(response, tmsg);
+  if(error)
+  {
     Serial.println("Failed to parse JSON!");
+    Serial.println(error.c_str());
     Serial.println(tmsg);
-//    jsonBuffer.clear();
     return;
   }
   
@@ -65,7 +79,7 @@ void extractJSON(String &tmsg) {
     Serial.println("No useful data");
   }
   
-  jsonBuffer.clear();
+  response.clear();
   //delete [] msg2;
 }
 

@@ -1,6 +1,6 @@
 # TwitterWebAPI
 
-An Arduino library to talk to Twitter using [Twitter Web API](https://dev.twitter.com/overview/api) made for ESP8266. This is based on a sketch posted [here](https://github.com/soramimi/ESP8266Tweet). There are other approaches like using a bearer token [arduino-twitter-api](https://github.com/witnessmenow/arduino-twitter-api), but there are limitations in terms of not being able to send tweet. This can both search/read and post tweets.
+An Arduino library to talk to Twitter using [Twitter Web API](https://dev.twitter.com/overview/api) made for ESP8266/ESP32. This is based on a sketch posted [here](https://github.com/soramimi/ESP8266Tweet). There are other approaches like using a bearer token [arduino-twitter-api](https://github.com/witnessmenow/arduino-twitter-api), but there are limitations in terms of not being able to send tweet. This can both search/read and post tweets.
 
 [![ESP8266 TwitterWebAPI](https://img.youtube.com/vi/ZDGhFYGj5tc/0.jpg)](https://www.youtube.com/watch?v=ZDGhFYGj5tc)
 
@@ -65,9 +65,9 @@ std::string twitter_post_msg;
 tcr.tweet(twitter_post_msg);
 ```
 ## Example: TwitterTweetSearchFSWiFiMgr
-In addition to [TwitterWebAPI](https://github.com/debsahu/TwitterWebAPI), make sure that [TimeLib library](https://github.com/PaulStoffregen/Time) and [NTPClient library](https://github.com/arduino-libraries/NTPClient) is installed, and install the following libraries 
+In addition to [TwitterWebAPI](https://github.com/debsahu/TwitterWebAPI), ~~ make sure that [TimeLib library](https://github.com/PaulStoffregen/Time) and [NTPClient library](https://github.com/arduino-libraries/NTPClient) is installed ~~ (No longer needed) , and install the following libraries 
 * [Arduino JSON](https://github.com/bblanchon/ArduinoJson)
-* [WiFiManager](https://github.com/tzapu/WiFiManager)
+* [WiFiManager - Development](https://github.com/tzapu/WiFiManager/tree/development)
 
 For display you can either install
 * [MAX7219 library](https://github.com/SensorsIot/MAX7219-4-digit-display-for-ESP8266) 
