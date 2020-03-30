@@ -65,7 +65,7 @@ std::string twitter_post_msg;
 tcr.tweet(twitter_post_msg);
 ```
 ## Example: TwitterTweetSearchFSWiFiMgr
-In addition to [TwitterWebAPI](https://github.com/debsahu/TwitterWebAPI), ~~ make sure that [TimeLib library](https://github.com/PaulStoffregen/Time) and [NTPClient library](https://github.com/arduino-libraries/NTPClient) is installed ~~ (No longer needed) , and install the following libraries 
+In addition to [TwitterWebAPI](https://github.com/debsahu/TwitterWebAPI), ~~make sure that [TimeLib library](https://github.com/PaulStoffregen/Time) and [NTPClient library](https://github.com/arduino-libraries/NTPClient) is installed~~ (No longer needed) , and install the following libraries 
 * [Arduino JSON](https://github.com/bblanchon/ArduinoJson)
 * [WiFiManager - Development](https://github.com/tzapu/WiFiManager/tree/development)
 
