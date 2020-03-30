@@ -8,6 +8,6 @@
     "url": "https://github.com/debsahu/TwitterWebAPI.git"
   },
   "frameworks": "arduino",
-  "platforms": "espressif8266",
-  "version": "0.1"
+  "platforms": ["espressif8266", "espressif32"],
+  "version": "1.0"
 }

@@ -1,10 +1,14 @@
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
+#ifdef ESP32
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WebServer.h>
+#elif defined(ESP8266)
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-#include <TimeLib.h>
+#else
+#error Platform not supported
+#endif
+
 #include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
@@ -29,6 +33,8 @@ unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls
   static char const accesstoken_sec[] = "bsekjH8YT3dCWDdsgsdHUgdBiosesDgv43rknU4YY56Tj";
 #endif
 
+#define LED_BUILTIN 2
+
 //   Dont change anything below this line    //
 ///////////////////////////////////////////////
 
@@ -37,21 +43,25 @@ unsigned long api_lasttime = 0;
 bool twit_update = false;
 std::string search_msg = "No Message Yet!";
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+WiFiClientSecure sclient;
+TwitterClient tcr(sclient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
 
+#ifdef ESP32
+WebServer server(80);
+#elif defined(ESP8266)
 ESP8266WebServer server(80);
+#endif
 
-void extractJSON(String tmsg) {
-  const char* msg2 = const_cast <char*> (tmsg.c_str());
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& response = jsonBuffer.parseObject(msg2);
-  
-  if (!response.success()) {
+
+void extractJSON(String &tmsg) {
+  //const char* msg2 = const_cast <char*> (tmsg.c_str());
+  DynamicJsonDocument response(5000);
+  auto error = deserializeJson(response, tmsg);
+  if(error)
+  {
     Serial.println("Failed to parse JSON!");
-    Serial.println(msg2);
-//    jsonBuffer.clear();
+    Serial.println(error.c_str());
+    Serial.println(tmsg);
     return;
   }
   
@@ -69,8 +79,8 @@ void extractJSON(String tmsg) {
     Serial.println("No useful data");
   }
   
-  jsonBuffer.clear();
-  delete [] msg2;
+  response.clear();
+  //delete [] msg2;
 }
 
 void handleRoot() {
@@ -210,7 +220,7 @@ void setup(void){
   Serial.println(WiFi.localIP());
   delay(100);
   // Connect to NTP and force-update time
-  tcr.startNTP();
+  tcr.startNTP(ntp_server, timezone);
   Serial.println("NTP Synced");
   delay(100);
   // Setup internal LED
@@ -246,7 +256,8 @@ void loop(void){
   
   if (millis() > api_lasttime + api_mtbs)  {
     digitalWrite(LED_BUILTIN, LOW);
-    extractJSON(tcr.searchTwitter(search_str));
+    String reply = tcr.searchTwitter(search_str);
+    extractJSON(reply);
     Serial.print("Search: ");
     Serial.println(search_str.c_str());
     Serial.print("MSG: ");

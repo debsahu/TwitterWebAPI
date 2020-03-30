@@ -1,15 +1,19 @@
 #include <FS.h>                          // FS.h has to be first
-#include <ESP8266WiFi.h>
+#ifdef ESP32
+#include <SPIFFS.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WebServer.h>
+#include <Update.h>
+#elif defined(ESP8266)
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
-#include <WiFiUdp.h>
-#include <WiFiClient.h>
-#include <WiFiClientSecure.h>
+#else
+#error Platform not supported
+#endif
 #include <WiFiManager.h>
-#include <NTPClient.h>
-#include <TimeLib.h>
-#include <ArduinoJson.h>                  // https://github.com/bblanchon/ArduinoJson
+#include <ArduinoJson.h>                    // https://github.com/bblanchon/ArduinoJson
 //#include "secret.h"                       // uncomment if using secret.h file with credentials
 //#define TWI_TIMEOUT 3000                  // varies depending on network speed (msec), needs to be before TwitterWebAPI.h
 #include <TwitterWebAPI.h>
@@ -64,6 +68,8 @@ unsigned long twi_update_interval = 20;   // (seconds) minimum 5s (180 API calls
   #define ota_password "password"        // OTA password
 #endif
 
+#define LED_BUILTIN 2
+
 //   Dont change anything below this line    //
 ///////////////////////////////////////////////
 
@@ -84,11 +90,16 @@ MD_Parola P = MD_Parola(DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
 char curmsg[512];
 #endif
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntp_server, timezone*3600, 60000);  // NTP server pool, offset (in seconds), update interval (in milliseconds)
-TwitterClient tcr(timeClient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+WiFiClientSecure sclient;
+TwitterClient tcr(sclient, consumer_key, consumer_sec, accesstoken, accesstoken_sec);
+
+#ifdef ESP32
+WebServer server(80);
+const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+#elif defined(ESP8266)
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
+#endif
 
 // Helper
 #define MODEBUTTON 0
@@ -150,23 +161,26 @@ bool writetoFS(bool saveConfig){
   if (saveConfig) {
     //FS save
     DEBUG_PRINT("Mounting FS...");
+#ifdef ESP32
+    if (SPIFFS.begin(true) and saveConfig) {
+#else
     if (SPIFFS.begin() and saveConfig) {
+#endif
       updateFS = true;
       DEBUG_PRINTLN("Mounted.");
       //save the custom parameters to FS
       DEBUG_PRINT("Saving config: ");
 //      DynamicJsonBuffer jsonBuffer;
-      StaticJsonBuffer<200> jsonBuffer;
-      JsonObject& json = jsonBuffer.createObject();
+      StaticJsonDocument<200> json;
       json["search"] = search_str.c_str();
 
 //      SPIFFS.remove("/config.json") ? DEBUG_PRINTLN("removed file") : DEBUG_PRINTLN("failed removing file");
 
       File configFile = SPIFFS.open("/config.json", "w");
       if (!configFile) DEBUG_PRINTLN("failed to open config file for writing");
-  
-      json.printTo(Serial);
-      json.printTo(configFile);
+
+      serializeJson(json, Serial);
+      serializeJson(json, configFile);
       configFile.close();
       updateFS = false;
       SPIFFS.end();
@@ -189,8 +203,13 @@ bool readfromFS() {
   //read configuration from FS json
   DEBUG_PRINT("Mounting FS...");
   updateFS = true;
+#ifdef ESP32
+  if (resetsettings) { SPIFFS.begin(true); SPIFFS.remove("/config.json"); SPIFFS.format(); delay(1000);}
+  if (SPIFFS.begin(true)) { //format SPIFFS if needed
+#else
   if (resetsettings) { SPIFFS.begin(); SPIFFS.remove("/config.json"); SPIFFS.format(); delay(1000);}
   if (SPIFFS.begin()) {
+#endif
     DEBUG_PRINTLN("mounted file system");
     if (SPIFFS.exists("/config.json")) {
       //file exists, reading and loading
@@ -203,11 +222,10 @@ bool readfromFS() {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-//        DynamicJsonBuffer jsonBuffer;
-        StaticJsonBuffer<JSON_OBJECT_SIZE(10)> jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
-        if (json.success()) {
+//        DynamicJsonDocument jsonBuffer(5000);
+        StaticJsonDocument<JSON_OBJECT_SIZE(10)+200> json;
+        auto error = deserializeJson(json, buf.get());
+        if (!error) {
           DEBUG_PRINTLN("\nparsed json");
           String tmpstr = json["search"];
           search_str = std::string(tmpstr.c_str(), tmpstr.length());
@@ -231,18 +249,17 @@ bool readfromFS() {
   return false;
 }
 
-void extractJSON(String tmsg) {
-  const char* msg2 = const_cast <char*> (tmsg.c_str());
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& response = jsonBuffer.parseObject(msg2);
-  
-  if (!response.success()) {
-    DEBUG_PRINTLN("Failed to parse JSON!");
-    DEBUG_PRINTLN(msg2);
-//    jsonBuffer.clear();
+void extractJSON(String &tmsg) {
+  // const char* msg2 = const_cast <char*> (tmsg.c_str());
+  DynamicJsonDocument response(5000);
+  auto error = deserializeJson(response, tmsg);
+  if(error)
+  {
+    Serial.println("Failed to parse JSON!");
+    Serial.println(error.c_str());
+    Serial.println(tmsg);
     return;
   }
-  
   if (response.containsKey("statuses")) {
     String usert = response["statuses"][0]["user"]["screen_name"];
     String text = response["statuses"][0]["text"];
@@ -257,8 +274,8 @@ void extractJSON(String tmsg) {
     DEBUG_PRINTLN("No useful data");
   }
   
-  jsonBuffer.clear();
-  delete [] msg2;
+  response.clear();
+  // delete [] msg2;
 }
 
 void extractTweetText(String tmsg) {
@@ -519,7 +536,7 @@ void setup(void){
   delay(100);
 
   // Connect to NTP and force-update time
-  tcr.startNTP();
+  tcr.startNTP(ntp_server, timezone);
   DEBUG_PRINTLN("NTP Synced");
   delay(100);
   
@@ -537,8 +554,38 @@ void setup(void){
   } else {
     DEBUG_PRINTLN("Error setting up MDNS responder!");
   }
-
+#ifdef ESP32
+  server.on(ota_location, HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart();
+  }, []() {
+    if (!server.authenticate(ota_user, ota_password)) {
+      return server.requestAuthentication();
+    }
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      DEBUG_PRINTF("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin()) { //start with max available size
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { //true to set the size to the current progress
+        DEBUG_PRINTF("Update Success: %u\nRebooting...\n", upload.totalSize);
+      } else {
+        Update.printError(Serial);
+      }
+    } else {
+      DEBUG_PRINTF("Update Failed Unexpectedly (likely broken connection): status=%d\n", upload.status);
+    }
+  });
+#elif defined(ESP8266)
   httpUpdater.setup(&server,ota_location,ota_user,ota_password);
+#endif
   server.on("/", handleRoot);
   server.on("/search", getSearchWord);
   server.on("/tweet", handleTweet);
@@ -564,7 +611,7 @@ void loop(void){
     wifiManager.addParameter(&custom_search_str);
     if (!wifiManager.startConfigPortal((const char *) String(String(HOSTNAME) + String("OnDemandAP")).c_str(), AutoAP_password)) {
       DEBUG_PRINTLN("failed to connect and hit timeout");
-      delay(3000); ESP.reset(); delay(5000);
+      delay(3000); ESP.restart(); delay(5000);
     }
     search_str = std::string(custom_search_str.getValue());           //read updated parameters
     if(writetoFS(shouldSaveConfig)) DEBUG_PRINTLN("Done writing");;   //FS save
